@@ -1,0 +1,517 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Advanced Live Scientific Calculator</title>
+<style>
+  :root{
+    --bg:#121216; --panel:#1e1f26; --btn:#2c2f36; --accent:#ffb86b; --muted:#9aa0a6;
+    --success:#4cd964;
+  }
+  *{box-sizing:border-box; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg,#0f0f12 0%, #16161a 100%);
+    padding:18px;
+    color:#e6edf3;
+  }
+  .calculator{
+    width:100%; max-width:420px; background:var(--panel); border-radius:14px; padding:14px;
+    box-shadow:0 10px 30px rgba(4,6,10,0.6);
+    display:grid; grid-template-columns:1fr 110px; gap:12px;
+  }
+
+ 
+  .left{
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .top-row{
+    display:flex; gap:8px; align-items:center; justify-content:space-between;
+  }
+  .mode{
+    display:flex; gap:6px; align-items:center;
+  }
+  .mode button{
+    background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted);
+    padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:600;
+  }
+  .mode button.active{ background:var(--accent); color:#111; border-color:transparent; }
+
+  .display{
+    background:#0b0b0d; border-radius:10px; padding:10px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  #input{
+    width:100%; font-size:20px; background:transparent; color:#fff; border:none; outline:none;
+    text-align:right; padding-right:6px;
+  }
+  #result{
+    width:100%; font-size:16px; color:var(--success); text-align:right; background:transparent; border:none;
+  }
+  .kbd-hint{ font-size:12px; color:var(--muted); text-align:left; }
+
+  .buttons{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:8px;
+  }
+  .btn{
+    background:var(--btn); border:1px solid rgba(255,255,255,0.03); color:#eaf2ff; padding:12px;
+    border-radius:10px; font-size:15px; cursor:pointer; user-select:none;
+  }
+  .btn.wide{ grid-column:span 2; }
+  .btn.op{ background:#2a3139; color:var(--accent); font-weight:700; }
+  .btn.equal{ background:var(--accent); color:#111; font-weight:800; }
+  .btn.memory{ background:#22262b; color:#9fd3ff; }
+
+  
+  .right{
+    background:#15161a; border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px;
+  }
+  .panel-title{ font-size:13px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+  .history{
+    background:#0b0b0d; padding:8px; border-radius:8px; min-height:120px; overflow:auto; font-size:14px;
+  }
+  .hitem{ padding:6px; border-radius:6px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .hexpr{ color:#cbd6e2; font-size:13px; }
+  .hval{ color:var(--success); font-weight:700; }
+
+  .mem-list{ display:flex; gap:8px; flex-wrap:wrap; }
+  .mem-chip{ background:#0d1114; border:1px solid rgba(255,255,255,0.03); padding:6px 8px; border-radius:8px; font-size:13px; color:#9fd3ff; }
+
+  
+  @media (max-width:680px){
+    .calculator{ grid-template-columns: 1fr; }
+    .right{ order:2; }
+  }
+
+ 
+  .tiny{ font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="calculator" aria-label="Scientific Calculator">
+    <div class="left">
+      <div class="top-row">
+        <div class="mode" role="tablist" aria-label="Mode switch">
+          <button id="degBtn" class="active" onclick="setMode('deg')">DEG</button>
+          <button id="radBtn" onclick="setMode('rad')">RAD</button>
+        </div>
+        <div class="tiny">Live result · Keyboard supported</div>
+      </div>
+
+      <div class="display" role="region" aria-label="Display">
+        <input id="input" placeholder="Type or use buttons — e.g. sin(45)" autocomplete="off" />
+        <input id="result" readonly aria-live="polite" />
+        <div class="kbd-hint tiny">Keys: numbers, + - * / ^ ( ) %. Enter = evaluate, Backspace delete</div>
+      </div>
+
+      <div class="buttons" role="group" aria-label="Calculator buttons">
+        <!-- row 1 -->
+        <button class="btn" onclick="press('C')">C</button>
+        <button class="btn" onclick="press('(')">(</button>
+        <button class="btn" onclick="press(')')">)</button>
+        <button class="btn op" onclick="press('%')">%</button>
+        <button class="btn op" onclick="press('/')">÷</button>
+
+        <!-- row 2 -->
+        <button class="btn" onclick="press('7')">7</button>
+        <button class="btn" onclick="press('8')">8</button>
+        <button class="btn" onclick="press('9')">9</button>
+        <button class="btn op" onclick="press('*')">×</button>
+        <button class="btn op" onclick="press('^')">xʸ</button>
+
+        <!-- row 3 -->
+        <button class="btn" onclick="press('4')">4</button>
+        <button class="btn" onclick="press('5')">5</button>
+        <button class="btn" onclick="press('6')">6</button>
+        <button class="btn op" onclick="press('-')">−</button>
+        <button class="btn" onclick="press('√(')">√</button>
+
+        <!-- row 4 -->
+        <button class="btn" onclick="press('1')">1</button>
+        <button class="btn" onclick="press('2')">2</button>
+        <button class="btn" onclick="press('3')">3</button>
+        <button class="btn op" onclick="press('+')">+</button>
+        <button class="btn" onclick="press('.')">.</button>
+
+        <!-- row 5 -->
+        <button class="btn" onclick="press('0')">0</button>
+        <button class="btn" onclick="press('sin(')">sin</button>
+        <button class="btn" onclick="press('cos(')">cos</button>
+        <button class="btn" onclick="press('tan(')">tan</button>
+        <button class="btn equal" onclick="evaluateExpression()" title="Evaluate">=</button>
+
+        <!-- row 6 -->
+        <button class="btn memory" onclick="memoryPlus()">M+</button>
+        <button class="btn memory" onclick="memoryMinus()">M-</button>
+        <button class="btn memory" onclick="memoryRecall()">MR</button>
+        <button class="btn memory" onclick="memoryClear()">MC</button>
+        <button class="btn" onclick="press('log(')">log</button>
+
+        <!-- row 7 -->
+        <button class="btn" onclick="press('ln(')">ln</button>
+        <button class="btn" onclick="press('asin(')">asin</button>
+        <button class="btn" onclick="press('acos(')">acos</button>
+        <button class="btn" onclick="press('atan(')">atan</button>
+        <button class="btn" onclick="press('pi')">π</button>
+
+        <!-- row 8 -->
+        <button class="btn wide" onclick="backspace()">⌫</button>
+        <button class="btn" onclick="press('ans')">ANS</button>
+        <button class="btn" onclick="clearHistory()">Clr History</button>
+      </div>
+    </div>
+
+    <div class="right" aria-label="History and Memory">
+      <div class="panel-title"><div>History</div><div class="tiny">Recent calculations</div></div>
+      <div id="history" class="history" aria-live="polite"></div>
+
+      <div class="panel-title"><div>Memory</div><div class="tiny">M+, M-, MR, MC</div></div>
+      <div id="memory" class="mem-list"><div class="mem-chip">Empty</div></div>
+    </div>
+  </div>
+
+<script>
+
+let mode = 'deg'; // 'deg' or 'rad'
+let mem = 0;
+let lastAns = 0;
+let historyArr = [];
+
+/
+const inputEl = document.getElementById('input');
+const resultEl = document.getElementById('result');
+const historyEl = document.getElementById('history');
+const memoryEl = document.getElementById('memory');
+const degBtn = document.getElementById('degBtn');
+const radBtn = document.getElementById('radBtn');
+
+
+function setMode(m){
+  mode = m;
+  if(m==='deg'){ degBtn.classList.add('active'); radBtn.classList.remove('active'); }
+  else { radBtn.classList.add('active'); degBtn.classList.remove('active'); }
+  liveCalc();
+}
+
+
+function press(token){
+  if(token === 'C'){ inputEl.value=''; resultEl.value=''; return; }
+  if(token === 'pi'){ inputEl.value += String(Math.PI); liveCalc(); return; }
+  if(token === 'ans'){ inputEl.value += String(lastAns); liveCalc(); return; }
+  inputEl.value += token;
+  
+  inputEl.focus();
+  liveCalc();
+}
+
+function backspace(){
+  inputEl.value = inputEl.value.slice(0,-1);
+  liveCalc();
+}
+
+
+function memoryPlus(){
+  let v = parseFloat(resultEl.value);
+  if(!isNaN(v)) mem += v;
+  updateMemoryUI();
+}
+function memoryMinus(){
+  let v = parseFloat(resultEl.value);
+  if(!isNaN(v)) mem -= v;
+  updateMemoryUI();
+}
+function memoryRecall(){
+  inputEl.value += String(mem);
+  liveCalc();
+}
+function memoryClear(){
+  mem = 0; updateMemoryUI();
+}
+function updateMemoryUI(){
+  memoryEl.innerHTML = '';
+  if(mem === 0){
+    memoryEl.innerHTML = '<div class="mem-chip">0</div>';
+  } else {
+    let chip = document.createElement('div');
+    chip.className='mem-chip';
+    chip.textContent = String(mem);
+    memoryEl.appendChild(chip);
+  }
+}
+
+/* ====== History UI ====== */
+function pushHistory(expr, val){
+  const item = {expr, val, time: new Date()};
+  historyArr.unshift(item);
+  if(historyArr.length>30) historyArr.pop();
+  renderHistory();
+}
+function renderHistory(){
+  historyEl.innerHTML = '';
+  if(historyArr.length===0){ historyEl.innerHTML = '<div class="tiny">No history yet</div>'; return; }
+  for(const it of historyArr){
+    const row = document.createElement('div'); row.className='hitem';
+    const ex = document.createElement('div'); ex.className='hexpr'; ex.textContent = it.expr;
+    const v = document.createElement('div'); v.className='hval'; v.textContent = it.val;
+    row.appendChild(ex); row.appendChild(v);
+    row.onclick = ()=>{ inputEl.value = it.expr; liveCalc(); };
+    historyEl.appendChild(row);
+  }
+}
+function clearHistory(){ historyArr=[]; renderHistory(); }
+
+/* ====== Expression transform & evaluate ====== */
+
+/*
+ Transform expressions typed by user into safe JS-evaluable string:
+  - supports functions: sin, cos, tan, asin, acos, atan, log (base10), ln (natural), sqrt, √
+  - supports ^ (power) -> **
+  - supports percentage like 50% -> (50/100)
+  - supports nested parentheses
+  - mode: deg/rad (for trig): when in deg, wraps trig input with degToRad
+  - supports ans variable (lastAns)
+*/
+
+function degToRadStr(s){ return `((${s})*(${Math.PI}/180))`; }
+
+function transformExpression(raw){
+  if(!raw || raw.trim()==='') return '';
+  let s = raw;
+
+  // Normalize some characters (× ÷) to JS-friendly
+  s = s.replace(/×/g, '*').replace(/÷/g, '/').replace(/–/g, '-').replace(/π/g, String(Math.PI));
+
+  // Replace percentage attached to a number or parenthesis: e.g. 50% -> (50/100), (1+2)% -> ((1+2)/100)
+  s = s.replace(/([0-9.]+)\s*%/g, '($1/100)');
+  s = s.replace(/\)\s*%/g, ')/100'); // might leave as /100 for parenthetical percent
+
+  // Convert '^' to '**' for power
+  s = s.replace(/\^/g, '**');
+
+  // Replace √number or √(expr) with sqrt
+  s = s.replace(/√\s*\(/g, 'sqrt(');
+  s = s.replace(/√\s*([0-9.]+)/g, 'sqrt($1)');
+
+  // Replace 'log(' -> log10, 'ln(' -> natural log
+  // We'll convert to JS Math functions later in recursive processing
+
+  // We'll process functions by scanning for function names and replacing them with JS equivalents
+  const funcs = {
+    'sin': 'sin', 'cos': 'cos', 'tan': 'tan',
+    'asin': 'asin', 'acos': 'acos', 'atan': 'atan',
+    'log': 'log10', 'ln': 'ln', 'sqrt':'sqrt'
+  };
+
+  // helper to find matching closing paren for an opening at index i
+  function findMatchingParen(str, i){
+    if(str[i] !== '(') return -1;
+    let depth = 0;
+    for(let k=i; k<str.length; k++){
+      if(str[k] === '(') depth++;
+      else if(str[k] === ')'){
+        depth--;
+        if(depth === 0) return k;
+      }
+    }
+    return -1;
+  }
+
+  // recursively transform expression with function handling
+  function recurse(expr){
+    let out = '';
+    for(let i=0;i<expr.length;){
+      // try to match a function name at position i
+      let matched=false;
+      for(const fname in funcs){
+        if(expr.substring(i, i+fname.length).toLowerCase() === fname && expr[i+fname.length] === '('){
+          // found function call like sin(
+          const openIdx = i+fname.length;
+          const closeIdx = findMatchingParen(expr, openIdx);
+          if(closeIdx === -1){
+            // unmatched - just append and move on
+            out += expr[i];
+            i++;
+            matched = true;
+            break;
+          }
+          const inner = expr.substring(openIdx+1, closeIdx);
+          const innerTransformed = recurse(inner); // recursive transform
+          let replacement = '';
+          switch(fname){
+            case 'sin':
+            case 'cos':
+            case 'tan':
+            case 'asin':
+            case 'acos':
+            case 'atan':
+              if(mode === 'deg'){
+                // wrap inner with degree->radian conversion for sin/cos/tan; inverse trig returns rad so convert back to deg for asin/acos/atan?
+                if(['sin','cos','tan'].includes(fname)){
+                  replacement = `Math.${fname}(${degToRadStr(innerTransformed)})`;
+                } else { // asin/acos/atan -> JS returns radians; convert to degrees if in DEG mode
+                  replacement = `( (180/Math.PI)*Math.${fname}(${innerTransformed}) )`;
+                }
+              } else { // rad mode
+                if(['sin','cos','tan'].includes(fname)){
+                  replacement = `Math.${fname}(${innerTransformed})`;
+                } else {
+                  replacement = `Math.${fname}(${innerTransformed})`;
+                }
+              }
+              break;
+            case 'log': // base 10
+              // Use Math.log10 if available, else Math.log(x)/Math.LN10
+              replacement = `(typeof Math.log10==='function'?Math.log10(${innerTransformed}):(Math.log(${innerTransformed})/Math.LN10))`;
+              break;
+            case 'ln':
+              replacement = `Math.log(${innerTransformed})`;
+              break;
+            case 'sqrt':
+              replacement = `Math.sqrt(${innerTransformed})`;
+              break;
+            default:
+              replacement = `${fname}(${innerTransformed})`;
+          }
+          out += replacement;
+          i = closeIdx + 1;
+          matched = true;
+          break;
+        }
+      }
+      if(matched) continue;
+
+      // also handle standalone numbers followed by function-like token? (rare) - skip
+
+      // else copy character
+      out += expr[i];
+      i++;
+    }
+    return out;
+  }
+
+  // first pass: lower-case function names to simplify detection but keep numeric parts
+  // We'll operate on a version where function names are lowercase
+  // But maintain original digits/operators
+  // For safety, remove accidental repeated spaces
+  s = s.replace(/\s+/g, '');
+  // convert known uppercase function names to lowercase (user might type SIN)
+  s = s.replace(/SIN\(/ig,'sin(').replace(/COS\(/ig,'cos(').replace(/TAN\(/ig,'tan(')
+       .replace(/ASIN\(/ig,'asin(').replace(/ACOS\(/ig,'acos(').replace(/ATAN\(/ig,'atan(')
+       .replace(/LOG\(/ig,'log(').replace(/LN\(/ig,'ln(').replace(/SQRT\(/ig,'sqrt(');
+
+  // Now recursively process
+  let transformed = recurse(s);
+
+  // replace any remaining 'sqrt(' with Math.sqrt
+  transformed = transformed.replace(/sqrt\(/g,'Math.sqrt(');
+
+  // Replace any leftover 'pi' with Math.PI (if any)
+  transformed = transformed.replace(/\bpi\b/g, String(Math.PI));
+
+  // Replace standalone percent patterns like )/100 already handled above, but also convert trailing percent (rare) 
+  // Already handled earlier.
+
+  // Replace implicit multiplication like '2(' or ')(' or ')2' -> add * if needed (handle common cases)
+  transformed = transformed.replace(/(\d)\(/g,'$1*(');
+  transformed = transformed.replace(/\)(\d)/g,')*$1');
+  transformed = transformed.replace(/\)\(/g,')*(');
+
+  // support 'ans' variable
+  transformed = transformed.replace(/\bans\b/g, `(${lastAns})`);
+
+  return transformed;
+}
+
+/* ====== Evaluate safely ====== */
+function safeEval(jsExpr){
+  if(!jsExpr || jsExpr.trim()==='') return NaN;
+  // use Function constructor to evaluate
+  try{
+    // Avoid exposing global objects — expression only contains Math.* and numbers/operators
+    // But Function runs in global scope; still OK for calculator use
+    return Function('"use strict"; return (' + jsExpr + ')')();
+  }catch(e){
+    return NaN;
+  }
+}
+
+/* ====== Live calculate (on input) ====== */
+function liveCalc(){
+  const raw = inputEl.value;
+  if(!raw.trim()){ resultEl.value=''; return; }
+  try{
+    let jsExpr = transformExpression(raw);
+    let val = safeEval(jsExpr);
+    if(typeof val === 'number' && isFinite(val)){
+      // Format small rounding errors
+      const formatted = formatNumber(val);
+      resultEl.value = formatted;
+      lastAns = val;
+    } else {
+      resultEl.value = '';
+    }
+  }catch(e){
+    resultEl.value = '';
+  }
+}
+
+/* ====== Evaluate and push to history ====== */
+function evaluateExpression(){
+  const raw = inputEl.value;
+  if(!raw.trim()) return;
+  let jsExpr = transformExpression(raw);
+  let val = safeEval(jsExpr);
+  if(typeof val === 'number' && isFinite(val)){
+    const formatted = formatNumber(val);
+    resultEl.value = formatted;
+    lastAns = val;
+    pushHistory(raw, formatted);
+  } else {
+    resultEl.value = 'Error';
+  }
+}
+
+/* ====== number formatting helper ====== */
+function formatNumber(n){
+ 
+  if(Math.abs(n) < 1e-12) return '0';
+  // If integer-ish
+  if(Number.isInteger(n)) return String(n);
+  // else toPrecision with trimming
+  let s = Number(n).toPrecision(12);
+  // remove scientific if possible to readable
+  if(s.indexOf('e')===-1){
+    
+    s = s.replace(/\.?0+$/,'');
+    return s;
+  }
+ 
+  return Number(n).toPrecision(12).replace(/\.?0+e/,'e');
+}
+
+
+inputEl.addEventListener('input', liveCalc);
+inputEl.addEventListener('keydown', (ev)=>{
+  if(ev.key === 'Enter'){ ev.preventDefault(); evaluateExpression(); }
+  else if(ev.key === 'Backspace'){ /* default */ }
+  else {
+    
+  }
+});
+
+
+setMode('deg');
+updateMemoryUI();
+renderHistory();
+
+
+window.liveCalc = liveCalc;
+window.evaluateExpression = evaluateExpression;
+window.press = press;
+window.backspace = backspace;
+window.setMode = setMode;
+</script>
+</body>
+</html>
